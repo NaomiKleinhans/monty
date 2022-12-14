@@ -1,27 +1,115 @@
 #include "monty.h"
 
-global_var var_global;
+glob_t global = {NULL, NULL};
 
 /**
- * main - driver function for monty program
- * @ac: int num of arguments
- * @av: opcode file
- * Return: 0
+ * main - Entry point
+ * @argc: Number of arguments
+ * @argv: Arguments
+ * Return: number of arguments.
  */
 
-int main(int ac, char **av)
+int main(int argc, char *argv[])
 {
-	stack_t *stack;
-
-	stack = NULL;
-	if (ac != 2)
+	if (argc == 2)
+		handle_command(argv[1]);
+	else
 	{
-		fprintf(stderr, "USAGE: monty file\n");
+		printf(STDERR_FILENO, "USAGE: monty file\n");
 		exit(EXIT_FAILURE);
 	}
+	return (0);
+}
+/**
+ * handle_command - Read file
+ * @argv: Arguments
+ * Return: Nothing
+ */
+void handle_command(char *argv)
+{
+	int count = 0, result = 0;
+	size_t bufsize = 0;
+	char *arguments = NULL, *item = NULL;
+	stack_t *stack = NULL;
 
-	read_file(av[1], &stack);
-    /* recordar liberar memorias */
-	free_dlistint(stack);
+	global.fd = fopen(argv, "r");
+	if (global.fd)
+	{
+		while (getline(&global.line, &bufsize, global.fd) != -1)
+		{
+			count++;
+			arguments = strtok(global.line, " \n\t\r");
+			if (arguments == NULL)
+			{
+				free(arguments);
+				continue;
+			}
+			else if (*arguments == '#')
+				continue;
+			item = strtok(NULL, " \n\t\r");
+			result = get_opc(&stack, arguments, item, count);
+			if (result == 1)
+				push_error(global.fd, global.line, stack, count);
+			else if (result == 2)
+				ins_error(global.fd, global.line, stack, arguments, count);
+		}
+		free(global.line);
+		free_dlistint(stack);
+		fclose(global.fd);
+	}
+	else
+	{
+		dprintf(STDERR_FILENO, "Error: Can't open file %s\n", argv);
+		exit(EXIT_FAILURE);
+	}
+}
+/**
+ * get_opc - function to handle the opcode
+ * @stack: is a stack or queue
+ * @arg: is a parameter
+ * @item: is a parameter
+ * @count: is a line command
+ * Return: nothing
+ */
+int get_opc(stack_t **stack, char *arg, char *item, int count)
+{
+	int i = 0;
+
+	instruction_t op[] = {
+		{"push", f_push},
+		{"pall", f_pall},
+		{"pint", f_pint},
+		{"pop", f_pop},
+		{"swap", f_swap},
+		{"add", f_add},
+		{"sub", f_sub},
+		{"nop", f_nop},
+		{"div", f_div},
+		{"mul", f_mul},
+		{"mod", f_mod},
+		{"pchar", f_pchar},
+		{"pstr", f_pstr},
+		{NULL, NULL}
+	};
+
+	while (op[i].opcode)
+	{
+		if (!strcmp(arg, op[i].opcode))
+		{
+			if (!strcmp(arg, "push"))
+			{
+				if (_isdigit(item) == 1)
+					value = atoi(item);
+				else
+					return (1);
+			}
+			op[i].f(stack, (unsigned int)count);
+			break;
+		}
+		i++;
+	}
+	if (!op[i].opcode)
+		return (2);
+
 	return (0);
 }
